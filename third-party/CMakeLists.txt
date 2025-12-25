@@ -57,7 +57,7 @@ ExternalProject_Add(
              -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
              "$<$<CONFIG:Debug>:-DCMAKE_DEBUG_POSTFIX=d>"
              "$<$<PLATFORM_ID:Emscripten>:-DBGFX_CONFIG_MULTITHREADED=OFF>"
-             -DBGFX_BUILD_EXAMPLES=OFF
+             -DBGFX_BUILD_EXAMPLES=${BGFX_BUILD_EXAMPLES}
   BUILD_COMMAND cmake --build <BINARY_DIR> ${build_config_arg}
   INSTALL_COMMAND cmake --build <BINARY_DIR> --target install
                   ${build_config_arg})

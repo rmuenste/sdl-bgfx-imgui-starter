@@ -1,6 +1,19 @@
 cmake_minimum_required(VERSION 3.24)
 
 option(SUPERBUILD "Perform a superbuild (or not)" OFF)
+if (NOT DEFINED BGFX_BUILD_EXAMPLES)
+  if (CMAKE_CONFIGURATION_TYPES)
+    set(_bgfx_build_examples_default OFF)
+  elseif (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(_bgfx_build_examples_default ON)
+  else ()
+    set(_bgfx_build_examples_default OFF)
+  endif ()
+  set(BGFX_BUILD_EXAMPLES
+      ${_bgfx_build_examples_default}
+      CACHE BOOL "Build bgfx examples in the superbuild")
+  unset(_bgfx_build_examples_default)
+endif ()
 
 project(sdl-bgfx-imgui-starter LANGUAGES CXX)
 
