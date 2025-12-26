@@ -118,6 +118,9 @@ ExternalProject_Add(
                   <SOURCE_DIR>/pe
                   <INSTALL_DIR>/include/pe
           COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                  <BINARY_DIR>/config.h
+                  <INSTALL_DIR>/include/config.h
+          COMMAND ${CMAKE_COMMAND} -E copy_if_different
                   <BINARY_DIR>/lib/libpe.a
                   <INSTALL_DIR>/lib/libpe.a
           COMMAND ${CMAKE_COMMAND} -E echo "PE installed to <INSTALL_DIR>")

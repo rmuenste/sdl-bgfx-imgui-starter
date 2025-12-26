@@ -45,6 +45,12 @@ target_sources(${PROJECT_NAME} PRIVATE main.cpp sdl-imgui/imgui_impl_sdl2.cpp
                                        bgfx-imgui/imgui_impl_bgfx.cpp)
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_11)
 
+# Stop on first error for easier debugging
+target_compile_options(${PROJECT_NAME} PRIVATE
+  $<$<CXX_COMPILER_ID:GNU,Clang>:-Wfatal-errors>
+  $<$<CXX_COMPILER_ID:MSVC>:/WX>
+)
+
 # Add PE include directory
 if (PE_INCLUDE_DIR)
   target_include_directories(${PROJECT_NAME} PRIVATE ${PE_INCLUDE_DIR})

@@ -5,6 +5,10 @@
 #include <SDL.h>
 #include <SDL_syswm.h>
 
+// PE requires config.h to be included first for PE_PUBLIC and other macros
+#include <config.h>
+#include <pe/core.h>
+
 #include "bgfx-imgui/imgui_impl_bgfx.h"
 #include "file-ops.h"
 #include "imgui.h"
