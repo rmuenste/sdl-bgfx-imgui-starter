@@ -1,6 +1,7 @@
 #include <bgfx/bgfx.h>
 #include <bgfx/platform.h>
 #include <bx/math.h>
+#include <debugdraw/debugdraw.h>
 
 #include <SDL.h>
 #include <SDL_syswm.h>
@@ -8,6 +9,7 @@
 // PE requires config.h to be included first for PE_PUBLIC and other macros
 #include <config.h>
 #include <pe/core.h>
+#include <pe/core/Types.h>
 
 #include "bgfx-imgui/imgui_impl_bgfx.h"
 #include "file-ops.h"
@@ -17,6 +19,11 @@
 #if BX_PLATFORM_EMSCRIPTEN
 #include "emscripten.h"
 #endif // BX_PLATFORM_EMSCRIPTEN
+
+
+pe::WorldID g_world_id;
+pe::SphereID g_sphere;
+pe::PlaneID g_plane;
 
 struct PosColorVertex
 {
@@ -69,6 +76,11 @@ struct context_t
 
 void main_loop(void* data)
 {
+
+    // start with the physics step
+    pe::real dt = (1.0/ 60.0);
+    g_world_id->simulationStep(dt);
+
     auto context = static_cast<context_t*>(data);
 
     for (SDL_Event current_event; SDL_PollEvent(&current_event) != 0;) {
@@ -105,7 +117,7 @@ void main_loop(void* data)
     bx::mtxRotateXYZ(cam_rotation, context->cam_pitch, context->cam_yaw, 0.0f);
 
     float cam_translation[16];
-    bx::mtxTranslate(cam_translation, 0.0f, 0.0f, -5.0f);
+    bx::mtxTranslate(cam_translation, 0.0f, 1.0f, -5.0f);
 
     float cam_transform[16];
     bx::mtxMul(cam_transform, cam_translation, cam_rotation);
@@ -121,13 +133,90 @@ void main_loop(void* data)
     bgfx::setViewTransform(0, view, proj);
 
     float model[16];
-    bx::mtxIdentity(model);
-    bgfx::setTransform(model);
 
-    bgfx::setVertexBuffer(0, context->vbh);
-    bgfx::setIndexBuffer(context->ibh);
+    // Add at top of main.cpp (after includes, before main)
+    static const uint32_t SPHERE_COLORS[] = {
+        0xff00ff00,  // Green
+        0xff0000ff,  // Red  
+        0xffff0000,  // Blue
+        0xff00ffff,  // Yellow
+        0xffff00ff,  // Magenta
+        0xffffff00,  // Cyan
+        0xffffffff,  // White
+        0xffff8000,  // Orange
+    };
+    const int NUM_COLORS = sizeof(SPHERE_COLORS) / sizeof(SPHERE_COLORS[0]);    
 
-    bgfx::submit(0, context->program);
+    // Debug draw test
+    DebugDrawEncoder dde;
+    dde.begin(0);
+
+    int sphereIndex = 0;
+    // Instead of hardcoding g_sphere
+    for (auto bodyIt = g_world_id->begin(); bodyIt != g_world_id->end(); ++bodyIt)
+    {
+        pe::BodyID body = *bodyIt;
+        if (body->getType() == pe::sphereType) {  // Skip infinite bodies (planes)
+            // Render based on type
+            // Draw a test sphere
+            bx::Sphere testSphere;
+
+            pe::Vec3 pos = body->getPosition();
+            testSphere.center = { pos[0], pos[1], pos[2] };
+            pe::SphereID s = pe::static_body_cast<pe::Sphere>(body);
+            pe::real rad = s->getRadius();            
+
+            // Select color
+            uint32_t color = SPHERE_COLORS[sphereIndex % NUM_COLORS];
+
+            testSphere.radius = static_cast<float>(rad);
+            dde.setColor(color);  // Green
+            dde.draw(testSphere);
+
+            // Draw orientation axes to show rotation
+            pe::Rot3 rot = body->getRotation();
+            float axisLength = testSphere.radius * 1.2f;
+        
+            dde.push();
+                // X-axis (red)
+                dde.setColor(0xff0000ff);
+                dde.moveTo(pos[0], pos[1], pos[2]);
+                dde.lineTo(
+                    pos[0] + rot[0] * axisLength,
+                    pos[1] + rot[3] * axisLength,
+                    pos[2] + rot[6] * axisLength
+                );
+        
+                // Y-axis (green)
+                dde.setColor(0xff00ff00);
+                dde.moveTo(pos[0], pos[1], pos[2]);
+                dde.lineTo(
+                    pos[0] + rot[1] * axisLength,
+                    pos[1] + rot[4] * axisLength,
+                    pos[2] + rot[7] * axisLength
+                );
+        
+                // Z-axis (blue)
+                dde.setColor(0xffff0000);
+                dde.moveTo(pos[0], pos[1], pos[2]);
+                dde.lineTo(
+                    pos[0] + rot[2] * axisLength,
+                    pos[1] + rot[5] * axisLength,
+                    pos[2] + rot[8] * axisLength
+                );
+            dde.pop();    
+            sphereIndex++;
+        }
+    }    
+
+
+    // Draw ground grid
+    bx::Vec3 up = { 0.0f, 1.0f, 0.0f };
+    bx::Vec3 origin = { 0.0f, 0.0f, 0.0f };
+    dde.setColor(0xff404040);  // Dark gray
+    dde.drawGrid(up, origin, 10, 1.0f);
+
+    dde.end();
 
     bgfx::frame();
 
@@ -205,16 +294,19 @@ int main(int argc, char** argv)
 #endif // BX_PLATFORM_WINDOWS ? BX_PLATFORM_OSX ? BX_PLATFORM_LINUX ?
        // BX_PLATFORM_EMSCRIPTEN
 
-    bgfx::VertexLayout pos_col_vert_layout;
-    pos_col_vert_layout.begin()
-        .add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float)
-        .add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true)
-        .end();
-    bgfx::VertexBufferHandle vbh = bgfx::createVertexBuffer(
-        bgfx::makeRef(cube_vertices, sizeof(cube_vertices)),
-        pos_col_vert_layout);
-    bgfx::IndexBufferHandle ibh = bgfx::createIndexBuffer(
-        bgfx::makeRef(cube_tri_list, sizeof(cube_tri_list)));
+    // Initialize debug draw
+    ddInit();
+
+    g_world_id = pe::theWorld();
+    g_world_id->setGravity(pe::Vec3(0.0, -0.4, 0.0));
+    unsigned int idx = 0;
+    pe::MaterialID myMaterial = pe::createMaterial("test", 1.0, 0.2, 0.5, 0.05, 0.2, 80, 100, 10, 11); 
+    g_sphere = pe::createSphere(idx++, pe::Vec3(0.4, 2.0, 2.0), 0.5, myMaterial);
+    pe::createSphere(idx++, pe::Vec3(0.0, 4.0, 2.0), 0.5, myMaterial);
+     
+    // Setup of the ground plane
+    //g_plane = pe::createPlane( idx++, 0.0, 1.0, 0.0, -0.0, pe::granite );
+    g_plane = pe::createPlane( idx++, 0.0, 1.0, 0.0, -0.0, myMaterial );
 
     const std::string shader_root =
 #if BX_PLATFORM_EMSCRIPTEN
@@ -248,8 +340,6 @@ int main(int argc, char** argv)
     context.height = height;
     context.program = program;
     context.window = window;
-    context.vbh = vbh;
-    context.ibh = ibh;
 
 #if BX_PLATFORM_EMSCRIPTEN
     emscripten_set_main_loop_arg(main_loop, &context, -1, 1);
@@ -259,14 +349,16 @@ int main(int argc, char** argv)
     }
 #endif // BX_PLATFORM_EMSCRIPTEN
 
-    bgfx::destroy(vbh);
-    bgfx::destroy(ibh);
     bgfx::destroy(program);
 
     ImGui_ImplSDL2_Shutdown();
     ImGui_Implbgfx_Shutdown();
 
     ImGui::DestroyContext();
+
+    // Shutdown debug draw
+    ddShutdown();
+
     bgfx::shutdown();
 
     SDL_DestroyWindow(window);

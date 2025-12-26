@@ -42,8 +42,13 @@ find_library(PE_LIBRARY NAMES pe libpe PATHS ${PE_LIBRARY_DIR} NO_DEFAULT_PATH)
 
 add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE main.cpp sdl-imgui/imgui_impl_sdl2.cpp
-                                       bgfx-imgui/imgui_impl_bgfx.cpp)
+                                       bgfx-imgui/imgui_impl_bgfx.cpp
+                                       third-party/build/src/bgfx/bgfx/examples/common/debugdraw/debugdraw.cpp)
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_11)
+
+# Add bgfx examples/common include path for debugdraw
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_SOURCE_DIR}/third-party/build/src/bgfx/bgfx/examples/common)
 
 # Stop on first error for easier debugging
 target_compile_options(${PROJECT_NAME} PRIVATE
