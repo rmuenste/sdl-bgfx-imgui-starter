@@ -15,6 +15,8 @@ if (NOT DEFINED BGFX_BUILD_EXAMPLES)
   unset(_bgfx_build_examples_default)
 endif ()
 
+option(PE_BUILD_CGAL "Build PE with CGAL support for triangle meshes" ON)
+
 project(sdl-bgfx-imgui-starter LANGUAGES CXX)
 
 if (SUPERBUILD)
@@ -32,13 +34,33 @@ find_package(SDL2 REQUIRED CONFIG CMAKE_FIND_ROOT_PATH_BOTH)
 find_package(bgfx REQUIRED CONFIG CMAKE_FIND_ROOT_PATH_BOTH)
 find_package(imgui.cmake REQUIRED CONFIG CMAKE_FIND_ROOT_PATH_BOTH)
 
+# PE doesn't export CMake config, so we set paths manually
+# The superbuild will build PE and we can link to it directly
+set(PE_INCLUDE_DIR ${CMAKE_PREFIX_PATH}/include)
+set(PE_LIBRARY_DIR ${CMAKE_PREFIX_PATH}/lib)
+find_library(PE_LIBRARY NAMES pe libpe PATHS ${PE_LIBRARY_DIR} NO_DEFAULT_PATH)
+
 add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE main.cpp sdl-imgui/imgui_impl_sdl2.cpp
                                        bgfx-imgui/imgui_impl_bgfx.cpp)
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_11)
+
+# Add PE include directory
+if (PE_INCLUDE_DIR)
+  target_include_directories(${PROJECT_NAME} PRIVATE ${PE_INCLUDE_DIR})
+endif()
+
 target_link_libraries(
   ${PROJECT_NAME} PRIVATE SDL2::SDL2-static SDL2::SDL2main bgfx::bgfx bgfx::bx
                           imgui.cmake::imgui.cmake)
+
+# Link PE library if found
+if (PE_LIBRARY)
+  target_link_libraries(${PROJECT_NAME} PRIVATE ${PE_LIBRARY})
+  # PE also needs Boost
+  find_package(Boost 1.46.1 REQUIRED COMPONENTS thread system filesystem program_options)
+  target_link_libraries(${PROJECT_NAME} PRIVATE Boost::thread Boost::system Boost::filesystem Boost::program_options)
+endif()
 target_link_options(
   ${PROJECT_NAME} PRIVATE $<$<BOOL:${EMSCRIPTEN}>:-sMAX_WEBGL_VERSION=2
   -sALLOW_MEMORY_GROWTH=1 --preload-file=shader/embuild/v_simple.bin

@@ -75,3 +75,49 @@ ExternalProject_Add(
   BUILD_COMMAND cmake --build <BINARY_DIR> ${build_config_arg}
   INSTALL_COMMAND cmake --build <BINARY_DIR> --target install
                   ${build_config_arg})
+
+# PE (Physics Engine) - Rigid body dynamics simulation
+# PE requires Boost - check that it's available
+find_package(Boost 1.46.1 REQUIRED COMPONENTS thread system filesystem program_options)
+if (NOT Boost_FOUND)
+  message(FATAL_ERROR "PE requires Boost >= 1.46.1. Please install Boost first.")
+endif()
+
+# Check for CGAL if enabled
+if (PE_BUILD_CGAL)
+  find_package(CGAL QUIET)
+  if (NOT CGAL_FOUND)
+    message(WARNING "CGAL not found. PE will be built without CGAL support.")
+    set(PE_BUILD_CGAL OFF)
+  endif()
+endif()
+
+ExternalProject_Add(
+  pe
+  GIT_REPOSITORY https://github.com/rmuenste/pe-0.3rc1.git
+  GIT_TAG master
+  PREFIX ${PREFIX_DIR}
+  BINARY_DIR ${PREFIX_DIR}/src/pe-build/${build_type_dir}
+  CMAKE_COMMAND ${THIRD_PARTY_CMAKE_COMMAND}
+  CMAKE_ARGS ${build_type_arg}
+             -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+             "$<$<CONFIG:Debug>:-DCMAKE_DEBUG_POSTFIX=d>"
+             # PE Configuration
+             -DLIBRARY_TYPE=STATIC
+             -DEXAMPLES=OFF
+             -DIRRLICHT=OFF
+             -DEIGEN=ON
+             -DCGAL=${PE_BUILD_CGAL}
+             -DUSE_JSON=ON
+             -DMPI=OFF
+             -DOPENCL=OFF
+             -DBLAS=OFF
+  BUILD_COMMAND cmake --build <BINARY_DIR> ${build_config_arg}
+  # PE doesn't have install targets, so we manually copy files
+  INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_directory
+                  <SOURCE_DIR>/pe
+                  <INSTALL_DIR>/include/pe
+          COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                  <BINARY_DIR>/lib/libpe.a
+                  <INSTALL_DIR>/lib/libpe.a
+          COMMAND ${CMAKE_COMMAND} -E echo "PE installed to <INSTALL_DIR>")
