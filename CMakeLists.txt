@@ -40,82 +40,17 @@ set(PE_INCLUDE_DIR ${CMAKE_PREFIX_PATH}/include)
 set(PE_LIBRARY_DIR ${CMAKE_PREFIX_PATH}/lib)
 find_library(PE_LIBRARY NAMES pe libpe PATHS ${PE_LIBRARY_DIR} NO_DEFAULT_PATH)
 
-add_executable(${PROJECT_NAME})
-target_sources(${PROJECT_NAME} PRIVATE main.cpp sdl-imgui/imgui_impl_sdl2.cpp
-                                       bgfx-imgui/imgui_impl_bgfx.cpp
-                                       third-party/build/src/bgfx/bgfx/examples/common/debugdraw/debugdraw.cpp)
-target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_11)
+# Include helper functions for creating bgfx applications
+include(cmake/common-helpers.cmake)
 
-# Add bgfx examples/common include path for debugdraw
-target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CMAKE_SOURCE_DIR}/third-party/build/src/bgfx/bgfx/examples/common)
+# Build common library (ImGui impls, debugdraw)
+add_subdirectory(common)
 
-# Stop on first error for easier debugging
-target_compile_options(${PROJECT_NAME} PRIVATE
-  $<$<CXX_COMPILER_ID:GNU,Clang>:-Wfatal-errors>
-  $<$<CXX_COMPILER_ID:MSVC>:/WX>
+# Build main executable using helper function
+add_bgfx_application(
+  NAME ${PROJECT_NAME}
+  SOURCES main.cpp
 )
 
-# Add PE include directory
-if (PE_INCLUDE_DIR)
-  target_include_directories(${PROJECT_NAME} PRIVATE ${PE_INCLUDE_DIR})
-endif()
-
-target_link_libraries(
-  ${PROJECT_NAME} PRIVATE SDL2::SDL2-static SDL2::SDL2main bgfx::bgfx bgfx::bx
-                          imgui.cmake::imgui.cmake)
-
-# Link PE library if found
-if (PE_LIBRARY)
-  target_link_libraries(${PROJECT_NAME} PRIVATE ${PE_LIBRARY})
-  # PE also needs Boost
-  find_package(Boost 1.46.1 REQUIRED COMPONENTS thread system filesystem program_options)
-  target_link_libraries(${PROJECT_NAME} PRIVATE Boost::thread Boost::system Boost::filesystem Boost::program_options)
-endif()
-target_link_options(
-  ${PROJECT_NAME} PRIVATE $<$<BOOL:${EMSCRIPTEN}>:-sMAX_WEBGL_VERSION=2
-  -sALLOW_MEMORY_GROWTH=1 --preload-file=shader/embuild/v_simple.bin
-  --preload-file=shader/embuild/f_simple.bin>)
-target_compile_definitions(
-  ${PROJECT_NAME} PRIVATE $<$<BOOL:${EMSCRIPTEN}>:USE_SDL=2>)
-
-if (EMSCRIPTEN)
-  set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html")
-  add_custom_command(
-    TARGET ${PROJECT_NAME}
-    PRE_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>/shader/embuild
-    COMMAND
-      ${CMAKE_COMMAND} -E copy_if_different
-      ${CMAKE_CURRENT_SOURCE_DIR}/shader/embuild/v_simple.bin
-      $<TARGET_FILE_DIR:${PROJECT_NAME}>/shader/embuild
-    COMMAND
-      ${CMAKE_COMMAND} -E copy_if_different
-      ${CMAKE_CURRENT_SOURCE_DIR}/shader/embuild/f_simple.bin
-      $<TARGET_FILE_DIR:${PROJECT_NAME}>/shader/embuild
-    VERBATIM)
-else ()
-  add_custom_command(
-    TARGET ${PROJECT_NAME}
-    POST_BUILD
-    COMMAND
-      ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/shader/build
-      $<TARGET_FILE_DIR:${PROJECT_NAME}>/shader/build
-    VERBATIM)
-endif ()
-
-set_target_properties(
-  ${PROJECT_NAME}
-  # required for project when using visual studio generator
-  PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/$<CONFIG>)
-
-if (WIN32)
-  # copy the SDL2.dll to the same folder as the executable
-  add_custom_command(
-    TARGET ${PROJECT_NAME}
-    POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2>
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>
-    VERBATIM)
-endif ()
+# Build examples
+add_subdirectory(examples)
