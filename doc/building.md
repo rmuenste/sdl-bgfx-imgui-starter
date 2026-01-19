@@ -3,6 +3,24 @@
 This repo uses a superbuild to fetch and build SDL, bgfx, and Dear ImGui.
 The examples below assume a Unix Makefiles generator and a Release build.
 
+## Prerequisites (Ubuntu 24.04 / WSL)
+
+Install the required development libraries:
+
+```bash
+sudo apt-get install build-essential cmake ninja-build libx11-dev libglu1-mesa-dev libgl1 libxext-dev libboost-all-dev
+```
+
+This installs:
+- **build-essential** - C/C++ compiler toolchain (gcc, g++)
+- **cmake** - Build system generator (version 3.24 or later required)
+- **ninja-build** - Fast build system
+- **libx11-dev** - X11 development libraries (windowing system)
+- **libglu1-mesa-dev** - OpenGL Utility library
+- **libgl1** - Mesa OpenGL runtime
+- **libxext-dev** - X11 extension development libraries
+- **libboost-all-dev** - Boost C++ libraries
+
 ## Superbuild configure
 
 ```bash

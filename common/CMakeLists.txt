@@ -9,6 +9,8 @@ add_library(bgfx-common STATIC)
 target_sources(bgfx-common PRIVATE
     sdl-imgui/imgui_impl_sdl2.cpp
     bgfx-imgui/imgui_impl_bgfx.cpp
+    sphere-renderer/sphere_mesh.cpp
+    sphere-renderer/sphere_renderer.cpp
     ${CMAKE_SOURCE_DIR}/third-party/build/src/bgfx/bgfx/examples/common/debugdraw/debugdraw.cpp
 )
 
